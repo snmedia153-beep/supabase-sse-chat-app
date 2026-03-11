@@ -43,10 +43,13 @@ const KakaoChat: React.FC<KakaoChatProps> = ({ room, profile, onExit }) => {
           const data = await response.json();
           // 가져온 데이터를 포맷에 맞춰 state에 저장
           setMessages(data.map((m: any) => ({
-            ...m,
-            id: m.id || Date.now() + Math.random(),
-            isMe: m.senderId === profile.id,
-            time: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            id: m.id || Math.random(),
+            senderId: m.sender_id || m.senderId, // DB 필드명 대응
+            sender: m.profiles?.nickname || '익명',        // 백엔드에서 nickname을 같이 보내줘야 함
+            content: m.content,
+            time: new Date(m.created_at || m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isMe: String(m.sender_id || m.senderId) === String(profile.id), // ID 비교 강화
+            isRead: true
           })));
         }
       } catch (error) {
@@ -63,6 +66,7 @@ const KakaoChat: React.FC<KakaoChatProps> = ({ room, profile, onExit }) => {
 
     eventSource.addEventListener("chat", (event) => {
       const newMessage = JSON.parse(event.data);
+      console.log("받은 메시지:", newMessage); // 디버깅용 로그
       
       // 서버에서 온 메시지를 화면 리스트에 추가
       setMessages((prev) => [...prev, {
@@ -128,40 +132,45 @@ const KakaoChat: React.FC<KakaoChatProps> = ({ room, profile, onExit }) => {
 
       {/* 2. 채팅 메시지 영역 */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-5 scroll-smooth">
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start items-start'}`}>
-            
-            {/* 상대방 메시지일 때만 프로필 노출 */}
-            {!msg.isMe && (
-              <div className="w-10 h-10 bg-white rounded-xl mr-2 flex-shrink-0 flex items-center justify-center text-xs font-bold text-gray-400 border border-gray-200">
-                {msg.sender[0]}
-              </div>
-            )}
+        {messages.map((msg) => {
+          // 디버깅용: 내 채팅이 안 보인다면 콘솔에서 id를 확인해 보세요.
+          // console.log("Comparison:", msg.senderId, profile.id, msg.isMe);
 
-            <div className={`flex flex-col ${msg.isMe ? 'items-end' : 'items-start'}`}>
-              {/* 상대방 이름 노출 */}
+          return (
+            <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start items-start'}`}>
+              
+              {/* 상대방 메시지일 때만 프로필 노출 (msg.sender가 있을 때만 첫 글자 추출) */}
               {!msg.isMe && (
-                <span className="text-[11px] text-gray-700 mb-1 ml-1">{msg.sender}</span>
+                <div className="w-10 h-10 bg-white rounded-xl mr-2 flex-shrink-0 flex items-center justify-center text-xs font-bold text-gray-400 border border-gray-200">
+                  {msg.sender ? msg.sender[0] : '익'}
+                </div>
               )}
 
-              <div className={`flex items-end gap-1 ${msg.isMe ? 'flex-row-reverse' : ''}`}>
-                {/* 말풍선 */}
-                <div className={`max-w-[220px] p-2 text-sm shadow-sm
-                  ${msg.isMe 
-                    ? 'bg-[#ffeb33] rounded-l-lg rounded-br-lg' 
-                    : 'bg-white rounded-r-lg rounded-bl-lg'}`}
-                >
-                  {msg.content}
+              <div className={`flex flex-col ${msg.isMe ? 'items-end' : 'items-start'}`}>
+                {/* 상대방 이름 노출 */}
+                {!msg.isMe && (
+                  <span className="text-[11px] text-gray-700 mb-1 ml-1">{msg.sender || '알 수 없음'}</span>
+                )}
+
+                <div className={`flex items-end gap-1 ${msg.isMe ? 'flex-row-reverse' : ''}`}>
+                  {/* 말풍선 */}
+                  <div className={`max-w-[220px] p-2 text-sm shadow-sm
+                    ${msg.isMe 
+                      ? 'bg-[#ffeb33] rounded-l-lg rounded-br-lg' 
+                      : 'bg-white rounded-r-lg rounded-bl-lg'}`}
+                  >
+                    {msg.content}
+                  </div>
+                  
+                  {/* 시간 표시 (msg.time이 없을 경우 대비) */}
+                  <span className="text-[9px] text-gray-500 whitespace-nowrap mb-0.5">
+                    {msg.time || '방금'}
+                  </span>
                 </div>
-                
-                {/* 시간 표시 */}
-                <span className="text-[9px] text-gray-500 whitespace-nowrap mb-0.5">
-                  {msg.time}
-                </span>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 {/* 3. 새로운 메시지 알림 팝업 (이미지 하단 레이아웃 재현) */}
 <div className="mx-2 mb-2 bg-white p-2 rounded shadow-md border flex items-center justify-between animate-bounce">
