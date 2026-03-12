@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+//import React, { useState, useEffect, useRef } from 'react';
+import { API_BASE_URL } from './constants/api';
+import { useState, useEffect } from 'react';
 
 const RoomList = ({ onSelectRoom }: { onSelectRoom: (room: any) => void }) => {
     const [rooms, setRooms] = useState([]);
   
     useEffect(() => {
-      fetch('http://localhost:8080/api/chat/rooms')
+      fetch(`${API_BASE_URL}/api/chat/rooms`)
         .then(res => res.json())
         .then(data => setRooms(data));
     }, []);
